@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Influencer Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
+    header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 24px 32px; border-bottom: 1px solid #2a2a3e; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.5rem; font-weight: 700; background: linear-gradient(90deg, #e040fb, #7c4dff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .controls { display: flex; gap: 12px; align-items: center; }
+    button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; }
+    .btn-primary { background: linear-gradient(135deg, #e040fb, #7c4dff); color: white; }
+    .btn-success { background: #2e7d32; color: white; }
+    .btn-danger { background: #c62828; color: white; }
+    .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .status-on { background: #1b5e20; color: #a5d6a7; }
+    .status-off { background: #311b1b; color: #ef9a9a; }
+    main { max-width: 1200px; margin: 0 auto; padding: 32px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: #1a1a2e; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #2a2a3e; }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: #e040fb; }
+    .stat-card .label { font-size: 0.8rem; color: #888; margin-top: 4px; }
+    h2 { font-size: 1.2rem; margin-bottom: 16px; color: #ccc; }
+    .post-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .post-card { background: #1a1a2e; border-radius: 12px; overflow: hidden; border: 1px solid #2a2a3e; transition: transform 0.2s; }
+    .post-card:hover { transform: translateY(-2px); }
+    .post-card .media { width: 100%; height: 200px; object-fit: cover; background: #0d0d1a; }
+    .post-card .info { padding: 16px; }
+    .post-card .theme { font-size: 0.75rem; color: #e040fb; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .post-card .caption { font-size: 0.85rem; color: #bbb; margin-bottom: 10px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .post-card .meta { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; background: #0d0d1a; color: #888; }
+    .tag.ig { color: #e1306c; }
+    .tag.tt { color: #69c9d0; }
+    .post-card .date { font-size: 0.75rem; color: #555; margin-top: 8px; }
+    .empty { text-align: center; padding: 80px; color: #444; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #1b5e20; color: #a5d6a7; padding: 14px 20px; border-radius: 10px; font-size: 0.9rem; display: none; z-index: 999; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Influencer — Sofia</h1>
+    <div class="controls">
+      <span id="sched-badge" class="status-badge status-off">Scheduler: OFF</span>
+      <button class="btn-success" onclick="toggleScheduler()">Toggle Scheduler</button>
+      <button class="btn-primary" onclick="triggerNow()">Post Now</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats">
+      <div class="stat-card"><div class="num" id="total-posts">{{ posts|length }}</div><div class="label">Total Posts</div></div>
+      <div class="stat-card"><div class="num" id="ig-posts">{{ posts|selectattr('instagram_id')|list|length }}</div><div class="label">Instagram</div></div>
+      <div class="stat-card"><div class="num" id="tt-posts">{{ posts|selectattr('tiktok_id')|list|length }}</div><div class="label">TikTok</div></div>
+      <div class="stat-card"><div class="num">2×</div><div class="label">Daily schedule</div></div>
+    </div>
+
+    <h2>Post History</h2>
+
+    {% if posts %}
+    <div class="post-grid">
+      {% for p in posts %}
+      <div class="post-card">
+        {% if p.video_path %}
+          <video class="media" src="/output/videos/{{ p.video_path|replace('output/videos/','') }}" muted loop autoplay playsinline></video>
+        {% elif p.image_path %}
+          <img class="media" src="/output/images/{{ p.image_path|replace('output/images/','') }}" alt="post" loading="lazy" />
+        {% else %}
+          <div class="media" style="display:flex;align-items:center;justify-content:center;color:#333;">No media</div>
+        {% endif %}
+        <div class="info">
+          <div class="theme">{{ p.theme or '—' }}</div>
+          <div class="caption">{{ p.caption or '—' }}</div>
+          <div class="meta">
+            {% if p.instagram_id %}<span class="tag ig">IG {{ p.instagram_id }}</span>{% endif %}
+            {% if p.tiktok_id %}<span class="tag tt">TT {{ p.tiktok_id }}</span>{% endif %}
+            {% if not p.instagram_id and not p.tiktok_id %}<span class="tag">not published</span>{% endif %}
+          </div>
+          <div class="date">{{ p.created_at }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No posts yet — hit "Post Now" to run the pipeline!</div>
+    {% endif %}
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    async function checkScheduler() {
+      const r = await fetch('/api/scheduler/status');
+      const d = await r.json();
+      const badge = document.getElementById('sched-badge');
+      badge.textContent = d.running ? 'Scheduler: ON' : 'Scheduler: OFF';
+      badge.className = 'status-badge ' + (d.running ? 'status-on' : 'status-off');
+    }
+
+    async function toggleScheduler() {
+      const r = await fetch('/api/scheduler/status');
+      const d = await r.json();
+      const endpoint = d.running ? '/api/scheduler/stop' : '/api/scheduler/start';
+      await fetch(endpoint, { method: 'POST' });
+      await checkScheduler();
+    }
+
+    async function triggerNow() {
+      showToast('Pipeline triggered...');
+      await fetch('/api/trigger', { method: 'POST' });
+      setTimeout(() => location.reload(), 3000);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    checkScheduler();
+    setInterval(checkScheduler, 10000);
+  </script>
+</body>
+</html>

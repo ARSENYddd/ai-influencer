@@ -26,8 +26,12 @@ ENV/
 dist/
 build/
 
+# SQLite DB
+post_log.db
+
 # Logs
 *.log
+logs/
 
 # OS
 .DS_Store
