@@ -1,0 +1,9 @@
+replicate==0.34.1
+anthropic==0.40.0
+instagrapi==2.1.2
+schedule==1.2.2
+python-dotenv==1.0.1
+Pillow==10.4.0
+requests==2.32.3
+httpx==0.27.2
+tenacity==9.0.0

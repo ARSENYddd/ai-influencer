@@ -1,0 +1,37 @@
+# Environment
+.env
+*.env
+
+# Output files
+output/
+
+# Instagram session files
+*.json
+session_*.pickle
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
