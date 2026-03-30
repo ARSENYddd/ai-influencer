@@ -1,0 +1,367 @@
+{
+  "name": "AI Influencer Pipeline",
+  "nodes": [
+    {
+      "id": "cron-morning",
+      "name": "Morning Post (09:00)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 9,
+              "minute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cron-evening",
+      "name": "Evening Post (18:00)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 460],
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 18,
+              "minute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "webhook-manual",
+      "name": "Manual Trigger (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 620],
+      "parameters": {
+        "path": "run-now",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "webhookId": "ai-influencer-run-now"
+    },
+    {
+      "id": "health-check",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 380],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.PIPELINE_API_URL }}/health",
+        "options": {
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "if-healthy",
+      "name": "API is Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [660, 380],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equal",
+              "value2": "ok"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "run-pipeline",
+      "name": "Run Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, 280],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PIPELINE_API_URL }}/run-pipeline",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PIPELINE_API_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={ \"dry_run\": false }",
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "if-success",
+      "name": "Post Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1100, 280],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "format-success",
+      "name": "Format Success Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1320, 180],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string",
+              "string": "=✅ Posted! ID: {{ $json.post_id }}\nStyle #{{ $json.style_index }}: {{ $json.caption ? $json.caption.substring(0, 80) : '' }}...\n⏱ {{ $json.duration_seconds }}s"
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "string": "success"
+            },
+            {
+              "name": "post_id",
+              "type": "string",
+              "string": "={{ $json.post_id }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "format-error",
+      "name": "Format Error Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1320, 380],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string",
+              "string": "=❌ Pipeline FAILED\nError: {{ $json.error || $json.detail }}"
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "string": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "api-down-error",
+      "name": "API Unreachable",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [880, 480],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string",
+              "string": "=🔴 Pipeline API is DOWN\nHealth check failed at {{ $now.toISO() }}\nCheck: docker compose ps"
+            },
+            {
+              "name": "status",
+              "type": "string",
+              "string": "api_down"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "notify",
+      "name": "Notify (Connect Telegram/Slack here)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1540, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Morning Post (09:00)": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evening Post (18:00)": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check": {
+      "main": [
+        [
+          {
+            "node": "API is Healthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API is Healthy?": {
+      "main": [
+        [
+          {
+            "node": "Run Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "API Unreachable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Post Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Format Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Message": {
+      "main": [
+        [
+          {
+            "node": "Notify (Connect Telegram/Slack here)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Message": {
+      "main": [
+        [
+          {
+            "node": "Notify (Connect Telegram/Slack here)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Unreachable": {
+      "main": [
+        [
+          {
+            "node": "Notify (Connect Telegram/Slack here)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "tags": ["ai-influencer", "automation"]
+}

@@ -2,12 +2,15 @@
 .env
 *.env
 
-# Output files
+# Output files (images and logs)
 output/
 
 # Instagram session files
-*.json
+session_*.json
 session_*.pickle
+
+# Docker volumes (data persisted by containers)
+data/
 
 # Python
 __pycache__/
