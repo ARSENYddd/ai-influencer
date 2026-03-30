@@ -34,6 +34,14 @@ CONTENT_THEMES = [
 # ── Scheduler ──────────────────────────────────────────────────────────────────
 SCHEDULE_TIMES = ["12:00", "19:00"]
 
+# ── AWS S3 ─────────────────────────────────────────────────────────────────────
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+# Optional: CloudFront or custom domain. If empty, uses default S3 URL.
+S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "")
+
 # ── Storage ────────────────────────────────────────────────────────────────────
 OUTPUT_DIR = "output"
 POST_LOG_DB = "post_log.db"
