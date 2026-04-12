@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Content Queue — AI Influencer{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Content Queue</h1>
+    <p class="subtitle">Review and approve content before posting</p>
+</div>
+
+<div class="queue-layout">
+    <!-- Pending column -->
+    <section class="queue-section">
+        <h2 class="section-title">Pending Review <span class="badge">{{ pending|length }}</span></h2>
+        {% if pending %}
+            {% for item in pending %}
+            <div class="content-card" id="card-{{ item.id }}">
+                <div class="card-header">
+                    <span class="persona-badge persona-{{ item.persona_id }}">{{ item.persona_id|title }}</span>
+                    <span class="pipeline-badge">Pipeline {{ item.pipeline or 'C' }}</span>
+                    <span class="score-badge">Score: {{ (item.score or 0)|int }}</span>
+                </div>
+
+                {% if item.video_path %}
+                <div class="media-preview">
+                    <video controls preload="none" class="preview-video" poster="">
+                        <source src="/output/{{ item.video_path.replace('output/', '') }}" type="video/mp4">
+                    </video>
+                </div>
+                {% elif item.image_paths %}
+                <div class="image-gallery">
+                    {% set imgs = item.image_paths | from_json %}
+                    {% for img in imgs[:2] %}
+                    <img src="/output/{{ img.replace('output/', '') }}" class="preview-img" loading="lazy">
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="trend-info">
+                    <strong>Trend:</strong> {{ item.trend_type or 'Unknown' }}
+                </div>
+
+                <textarea class="caption-edit" id="caption-{{ item.id }}" rows="4">{{ item.caption or '' }}</textarea>
+
+                <div class="card-actions">
+                    <button class="btn btn-approve" onclick="approve({{ item.id }})">Approve</button>
+                    <button class="btn btn-reject" onclick="reject({{ item.id }})">Reject</button>
+                    <button class="btn btn-copy" onclick="copyCaption({{ item.id }})">Copy Caption</button>
+                </div>
+
+                <div class="card-meta">
+                    <small>Created: {{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '--' }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>No pending content. Run the pipeline to generate new content.</p>
+                <code>python pipeline_runner.py</code>
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Approved column -->
+    <section class="queue-section">
+        <h2 class="section-title">Recently Approved</h2>
+        {% if approved %}
+            {% for item in approved %}
+            <div class="content-card approved-card">
+                <div class="card-header">
+                    <span class="persona-badge persona-{{ item.persona_id }}">{{ item.persona_id|title }}</span>
+                    <span class="pipeline-badge">Pipeline {{ item.pipeline or 'C' }}</span>
+                </div>
+                <div class="trend-info">{{ item.trend_type or 'Unknown' }}</div>
+                {% if item.video_path %}
+                <a href="/output/{{ item.video_path.replace('output/', '') }}" download class="btn btn-download">Download</a>
+                {% endif %}
+                <small>Approved: {{ item.approved_at.strftime('%Y-%m-%d %H:%M') if item.approved_at else '--' }}</small>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state"><p>No approved content yet.</p></div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

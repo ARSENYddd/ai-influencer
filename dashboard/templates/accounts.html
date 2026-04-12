@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Accounts — AI Influencer{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Account Status</h1>
+</div>
+<div class="accounts-grid">
+    {% for persona_id, data in stats.items() %}
+    <div class="account-card persona-{{ persona_id }}">
+        <div class="account-avatar">{{ persona_id[0]|upper }}</div>
+        <h3>{{ persona_id|title }}</h3>
+        <div class="account-stats">
+            <div class="stat-row"><span>Pending</span><span class="stat-val">{{ data.pending }}</span></div>
+            <div class="stat-row"><span>Approved</span><span class="stat-val approved">{{ data.approved }}</span></div>
+            <div class="stat-row"><span>Rejected</span><span class="stat-val rejected">{{ data.rejected }}</span></div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
