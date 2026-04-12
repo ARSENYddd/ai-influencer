@@ -1,80 +1,105 @@
-"""FastAPI web dashboard: post history, manual trigger, scheduler toggle."""
-
-import asyncio
-import sys
+"""
+FastAPI web dashboard for content review and approval.
+"""
+import json
+import shutil
+from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from db import get_posts, init_db
-from config import OUTPUT_DIR
+from database.db import get_db
+from database.models import ContentItem
+from sqlalchemy.orm import Session
 
 app = FastAPI(title="AI Influencer Dashboard")
+templates = Jinja2Templates(directory="dashboard/templates")
+templates.env.filters['from_json'] = json.loads
+app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
 
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
-
-# Mount output folder so images/videos can be previewed
-output_path = Path(OUTPUT_DIR)
-output_path.mkdir(parents=True, exist_ok=True)
-app.mount("/output", StaticFiles(directory=str(output_path)), name="output")
-
-_scheduler_running = False
-_scheduler_task: asyncio.Task | None = None
-
-
-@app.on_event("startup")
-async def startup() -> None:
-    init_db()
+# Serve output files for media preview
+output_dir = Path("output")
+output_dir.mkdir(exist_ok=True)
+app.mount("/output", StaticFiles(directory="output"), name="output")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    posts = get_posts(limit=50)
-    return templates.TemplateResponse("index.html", {"request": request, "posts": posts})
+async def dashboard(request: Request, db: Session = Depends(get_db)):
+    pending = db.query(ContentItem).filter(ContentItem.status == "pending").order_by(ContentItem.created_at.desc()).all()
+    approved = db.query(ContentItem).filter(ContentItem.status == "approved").order_by(ContentItem.approved_at.desc()).limit(10).all()
+    return templates.TemplateResponse("queue.html", {
+        "request": request,
+        "pending": pending,
+        "approved": approved,
+    })
 
 
-@app.get("/api/posts")
-async def api_posts():
-    return get_posts(limit=50)
+@app.get("/accounts", response_class=HTMLResponse)
+async def accounts(request: Request, db: Session = Depends(get_db)):
+    personas = ["mia", "zara", "luna"]
+    stats = {}
+    for p in personas:
+        stats[p] = {
+            "pending": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "pending").count(),
+            "approved": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "approved").count(),
+            "rejected": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "rejected").count(),
+        }
+    return templates.TemplateResponse("accounts.html", {"request": request, "stats": stats})
 
 
-@app.post("/api/trigger")
-async def trigger(background_tasks: BackgroundTasks):
-    """Manually trigger the pipeline in the background."""
-    def _run():
-        from main import run_once
-        asyncio.run(run_once())
-
-    background_tasks.add_task(_run)
-    return {"status": "triggered"}
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics(request: Request, db: Session = Depends(get_db)):
+    items = db.query(ContentItem).order_by(ContentItem.created_at.desc()).limit(50).all()
+    return templates.TemplateResponse("analytics.html", {"request": request, "items": items})
 
 
-@app.get("/api/scheduler/status")
-async def scheduler_status():
-    return {"running": _scheduler_running}
+@app.post("/approve/{item_id}")
+async def approve(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ContentItem).get(item_id)
+    if not item:
+        raise HTTPException(404)
+    item.status = "approved"
+    item.approved_at = datetime.utcnow()
+    if item.video_path and Path(item.video_path).exists():
+        dst = Path("output/approved") / item.persona_id / Path(item.video_path).name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(item.video_path, dst)
+    db.commit()
+    return {"status": "approved"}
 
 
-@app.post("/api/scheduler/start")
-async def scheduler_start():
-    global _scheduler_running
-    if _scheduler_running:
-        return {"status": "already running"}
-    _scheduler_running = True
-    return {"status": "started"}
+@app.post("/reject/{item_id}")
+async def reject(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ContentItem).get(item_id)
+    if not item:
+        raise HTTPException(404)
+    item.status = "rejected"
+    db.commit()
+    return {"status": "rejected"}
 
 
-@app.post("/api/scheduler/stop")
-async def scheduler_stop():
-    global _scheduler_running
-    _scheduler_running = False
-    return {"status": "stopped"}
+@app.patch("/caption/{item_id}")
+async def update_caption(item_id: int, request: Request, db: Session = Depends(get_db)):
+    body = await request.json()
+    item = db.query(ContentItem).get(item_id)
+    if not item:
+        raise HTTPException(404)
+    item.caption = body.get("caption", item.caption)
+    db.commit()
+    return {"status": "updated"}
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("dashboard.app:app", host="0.0.0.0", port=8000, reload=True)
+@app.get("/api/stats")
+async def stats(db: Session = Depends(get_db)):
+    personas = ["mia", "zara", "luna"]
+    result = {}
+    for p in personas:
+        result[p] = {
+            "pending": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "pending").count(),
+            "approved": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "approved").count(),
+            "rejected": db.query(ContentItem).filter(ContentItem.persona_id == p, ContentItem.status == "rejected").count(),
+        }
+    return result

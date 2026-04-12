@@ -1,35 +1,15 @@
-# ── Image generation ──────────────────────────────────────────
-# Leonardo AI — via REST API (httpx), no SDK needed
-
-# ── Video generation ──────────────────────────────────────────
-# Kling AI — via REST API (httpx), no SDK needed
-
-# ── Caption generation ────────────────────────────────────────
-openai>=1.51.0
-
-# ── HTTP (async) ──────────────────────────────────────────────
-httpx>=0.27.2
-
-# ── Scheduler ─────────────────────────────────────────────────
-APScheduler==3.10.4
-
-# ── Logging ───────────────────────────────────────────────────
-loguru==0.7.2
-
-# ── Notifications ─────────────────────────────────────────────
-plyer==2.1.0
-
-# ── FastAPI dashboard ─────────────────────────────────────────
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-jinja2>=3.1.4
+groq>=0.9.0
+replicate>=0.25.0
+instagrapi>=2.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+jinja2>=3.1.3
+sqlalchemy>=2.0.0
 pydantic>=2.9.0
-python-multipart>=0.0.9
+pydantic-settings>=2.0.0
+moviepy>=1.0.3
+pillow>=10.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+schedule>=1.2.1
 aiofiles>=23.2.1
-
-# ── AWS S3 ────────────────────────────────────────────────────
-boto3>=1.35.0
-
-# ── Utilities ─────────────────────────────────────────────────
-python-dotenv==1.0.1
-Pillow>=10.4.0

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Analytics — AI Influencer{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Analytics</h1>
+</div>
+<table class="analytics-table">
+    <thead>
+        <tr>
+            <th>ID</th><th>Persona</th><th>Trend</th><th>Pipeline</th><th>Status</th><th>Score</th><th>Created</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr class="status-{{ item.status }}">
+            <td>{{ item.id }}</td>
+            <td><span class="persona-badge persona-{{ item.persona_id }}">{{ item.persona_id|title }}</span></td>
+            <td>{{ item.trend_type or '--' }}</td>
+            <td>{{ item.pipeline or 'C' }}</td>
+            <td>{{ item.status }}</td>
+            <td>{{ (item.score or 0)|int }}</td>
+            <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '--' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
